@@ -1,7 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, ShieldAlert, Briefcase, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ShieldAlert, Briefcase, Loader2, Search, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/lib/use-is-admin";
 import { useAuth } from "@/lib/auth-context";
