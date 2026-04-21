@@ -1,11 +1,13 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { Sparkles, LogOut, LayoutDashboard, Briefcase, Bookmark } from "lucide-react";
+import { Sparkles, LogOut, LayoutDashboard, Briefcase, Bookmark, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useIsAdmin } from "@/lib/use-is-admin";
 import { Button } from "@/components/ui/button";
 
 export function Navbar() {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const router = useRouter();
 
   return (
@@ -30,6 +32,7 @@ export function Navbar() {
           <NavLink to="/jobs">Jobs</NavLink>
           {user && <NavLink to="/saved">Saved</NavLink>}
           {user && <NavLink to="/dashboard">Dashboard</NavLink>}
+          {isAdmin && <NavLink to="/admin">Admin</NavLink>}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -64,6 +67,7 @@ export function Navbar() {
             <MobileIcon to="/dashboard" icon={<LayoutDashboard className="h-5 w-5" />} />
             <MobileIcon to="/jobs" icon={<Briefcase className="h-5 w-5" />} />
             <MobileIcon to="/saved" icon={<Bookmark className="h-5 w-5" />} />
+            {isAdmin && <MobileIcon to="/admin" icon={<Shield className="h-5 w-5" />} />}
           </div>
         </nav>
       )}
