@@ -70,6 +70,33 @@ function AdminPage() {
     if (isAdmin) load();
   }, [isAdmin]);
 
+  const categories = useMemo(
+    () =>
+      Array.from(new Set(jobs.map((j) => j.category).filter((c): c is string => !!c))).sort(),
+    [jobs],
+  );
+
+  const filteredJobs = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const out = jobs.filter((j) => {
+      if (categoryFilter !== "all" && j.category !== categoryFilter) return false;
+      if (!q) return true;
+      return (
+        j.title.toLowerCase().includes(q) ||
+        j.company.toLowerCase().includes(q) ||
+        (j.location ?? "").toLowerCase().includes(q) ||
+        (j.category ?? "").toLowerCase().includes(q)
+      );
+    });
+    return [...out].sort((a, b) => {
+      if (sortBy === "title") return a.title.localeCompare(b.title);
+      if (sortBy === "company") return a.company.localeCompare(b.company);
+      const da = new Date(a.created_at).getTime();
+      const db = new Date(b.created_at).getTime();
+      return sortBy === "oldest" ? da - db : db - da;
+    });
+  }, [jobs, query, categoryFilter, sortBy]);
+
   const openNew = () => {
     setEditing(null);
     setForm(empty);
