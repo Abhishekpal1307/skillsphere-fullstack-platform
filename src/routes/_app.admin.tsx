@@ -52,6 +52,9 @@ function AdminPage() {
   const [editing, setEditing] = useState<Job | null>(null);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "title" | "company">("newest");
 
   const load = async () => {
     setLoading(true);
