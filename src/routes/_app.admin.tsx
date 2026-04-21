@@ -1,7 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, ShieldAlert, Briefcase, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ShieldAlert, Briefcase, Loader2, Search, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/lib/use-is-admin";
 import { useAuth } from "@/lib/auth-context";
@@ -45,6 +52,9 @@ function AdminPage() {
   const [editing, setEditing] = useState<Job | null>(null);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "title" | "company">("newest");
 
   const load = async () => {
     setLoading(true);
@@ -59,6 +69,33 @@ function AdminPage() {
   useEffect(() => {
     if (isAdmin) load();
   }, [isAdmin]);
+
+  const categories = useMemo(
+    () =>
+      Array.from(new Set(jobs.map((j) => j.category).filter((c): c is string => !!c))).sort(),
+    [jobs],
+  );
+
+  const filteredJobs = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const out = jobs.filter((j) => {
+      if (categoryFilter !== "all" && j.category !== categoryFilter) return false;
+      if (!q) return true;
+      return (
+        j.title.toLowerCase().includes(q) ||
+        j.company.toLowerCase().includes(q) ||
+        (j.location ?? "").toLowerCase().includes(q) ||
+        (j.category ?? "").toLowerCase().includes(q)
+      );
+    });
+    return [...out].sort((a, b) => {
+      if (sortBy === "title") return a.title.localeCompare(b.title);
+      if (sortBy === "company") return a.company.localeCompare(b.company);
+      const da = new Date(a.created_at).getTime();
+      const db = new Date(b.created_at).getTime();
+      return sortBy === "oldest" ? da - db : db - da;
+    });
+  }, [jobs, query, categoryFilter, sortBy]);
 
   const openNew = () => {
     setEditing(null);
@@ -166,6 +203,53 @@ function AdminPage() {
         </Button>
       </motion.div>
 
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search title, company, location..."
+            className="pl-9"
+          />
+        </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="Sort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Newest first</SelectItem>
+            <SelectItem value="oldest">Oldest first</SelectItem>
+            <SelectItem value="title">Title (A–Z)</SelectItem>
+            <SelectItem value="company">Company (A–Z)</SelectItem>
+          </SelectContent>
+        </Select>
+        {(query || categoryFilter !== "all" || sortBy !== "newest") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setQuery("");
+              setCategoryFilter("all");
+              setSortBy("newest");
+            }}
+          >
+            <X className="mr-1.5 h-3.5 w-3.5" /> Reset
+          </Button>
+        )}
+      </div>
+
       {loading ? (
         <div className="grid place-items-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -174,45 +258,54 @@ function AdminPage() {
         <div className="glass rounded-2xl p-10 text-center text-sm text-muted-foreground">
           No jobs yet. Create your first one.
         </div>
-      ) : (
-        <div className="grid gap-3">
-          {jobs.map((job, i) => (
-            <motion.div
-              key={job.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.03 }}
-              className="glass flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5"
-            >
-              <div className="flex items-start gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-primary text-primary-foreground">
-                  <Briefcase className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">{job.title}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {job.company}
-                    {job.location ? ` · ${job.location}` : ""}
-                    {job.category ? ` · ${job.category}` : ""}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => openEdit(job)}>
-                  <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => remove(job.id)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
-                </Button>
-              </div>
-            </motion.div>
-          ))}
+      ) : filteredJobs.length === 0 ? (
+        <div className="glass rounded-2xl p-10 text-center text-sm text-muted-foreground">
+          No jobs match your filters.
         </div>
+      ) : (
+        <>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Showing {filteredJobs.length} of {jobs.length} jobs
+          </p>
+          <div className="grid gap-3">
+            {filteredJobs.map((job, i) => (
+              <motion.div
+                key={job.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.03 }}
+                className="glass flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-primary text-primary-foreground">
+                    <Briefcase className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">{job.title}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {job.company}
+                      {job.location ? ` · ${job.location}` : ""}
+                      {job.category ? ` · ${job.category}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => openEdit(job)}>
+                    <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => remove(job.id)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
