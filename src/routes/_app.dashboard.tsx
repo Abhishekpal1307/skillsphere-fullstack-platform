@@ -253,12 +253,107 @@ function DashboardPage() {
               </div>
             </div>
 
+            <div className="rounded-xl border border-dashed border-secondary/40 bg-secondary/5 p-4">
+              <div className="flex items-start gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-primary glow">
+                  <Sparkles className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-display text-sm font-semibold">Import from resume (AI)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Upload a PDF, DOCX, or TXT. We'll extract your skills and draft an optimized bio.
+                  </p>
+                  <div className="mt-3">
+                    <input
+                      ref={resumeInputRef}
+                      type="file"
+                      accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleResumeFile(f); }}
+                    />
+                    <Button
+                      type="button" variant="outline" size="sm"
+                      disabled={parsing}
+                      onClick={() => resumeInputRef.current?.click()}
+                    >
+                      {parsing ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Analyzing...</> : <><FileText className="mr-1.5 h-4 w-4" /> Upload resume</>}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <Button onClick={save} disabled={saving} className="w-full bg-gradient-primary glow hover:opacity-90">
               {saving ? "Saving..." : "Save changes"}
             </Button>
           </div>
         </motion.div>
       </div>
+
+      <Dialog open={!!suggestion} onOpenChange={(o) => !o && setSuggestion(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display">Resume insights</DialogTitle>
+            <DialogDescription>Pick what to apply to your profile. You can still edit before saving.</DialogDescription>
+          </DialogHeader>
+          {suggestion && (
+            <div className="space-y-4">
+              {suggestion.full_name && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                  <Checkbox
+                    checked={suggestion.apply.name}
+                    onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, name: !!v } })}
+                  />
+                  <div className="flex-1">
+                    <div className="text-xs font-medium text-muted-foreground">Full name</div>
+                    <div className="text-sm">{suggestion.full_name}</div>
+                  </div>
+                </label>
+              )}
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                <Checkbox
+                  checked={suggestion.apply.level}
+                  onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, level: !!v } })}
+                />
+                <div className="flex-1">
+                  <div className="text-xs font-medium text-muted-foreground">Experience level</div>
+                  <div className="text-sm capitalize">{suggestion.experience_level}</div>
+                </div>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                <Checkbox
+                  checked={suggestion.apply.bio}
+                  onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, bio: !!v } })}
+                />
+                <div className="flex-1">
+                  <div className="text-xs font-medium text-muted-foreground">Bio</div>
+                  <p className="text-sm leading-relaxed">{suggestion.bio}</p>
+                </div>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                <Checkbox
+                  checked={suggestion.apply.skills}
+                  onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, skills: !!v } })}
+                />
+                <div className="flex-1">
+                  <div className="text-xs font-medium text-muted-foreground">Skills ({suggestion.skills.length})</div>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {suggestion.skills.map((s) => (
+                      <Badge key={s} variant="secondary" className="bg-secondary/15 text-secondary">{s}</Badge>
+                    ))}
+                  </div>
+                </div>
+              </label>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSuggestion(null)}>Discard</Button>
+            <Button onClick={applySuggestion} className="bg-gradient-primary glow hover:opacity-90">
+              <Check className="mr-1.5 h-4 w-4" /> Apply selected
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
