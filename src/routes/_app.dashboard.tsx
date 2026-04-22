@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Camera, Trash2, Loader2, User as UserIcon, Sparkles, FileText, Check } from "lucide-react";
+import { Camera, Trash2, Loader2, User as UserIcon, Sparkles, FileText, Check, UserCircle2, AlignLeft, Wrench, BadgeCheck, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -291,61 +291,121 @@ function DashboardPage() {
       </div>
 
       <Dialog open={!!suggestion} onOpenChange={(o) => !o && setSuggestion(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">Resume insights</DialogTitle>
-            <DialogDescription>Pick what to apply to your profile. You can still edit before saving.</DialogDescription>
-          </DialogHeader>
-          {suggestion && (
-            <div className="space-y-4">
-              {suggestion.full_name && (
-                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
-                  <Checkbox
-                    checked={suggestion.apply.name}
-                    onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, name: !!v } })}
-                  />
-                  <div className="flex-1">
-                    <div className="text-xs font-medium text-muted-foreground">Full name</div>
-                    <div className="text-sm">{suggestion.full_name}</div>
-                  </div>
-                </label>
-              )}
-              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
-                <Checkbox
-                  checked={suggestion.apply.level}
-                  onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, level: !!v } })}
-                />
-                <div className="flex-1">
-                  <div className="text-xs font-medium text-muted-foreground">Experience level</div>
-                  <div className="text-sm capitalize">{suggestion.experience_level}</div>
-                </div>
-              </label>
-              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
-                <Checkbox
-                  checked={suggestion.apply.bio}
-                  onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, bio: !!v } })}
-                />
-                <div className="flex-1">
-                  <div className="text-xs font-medium text-muted-foreground">Bio</div>
-                  <p className="text-sm leading-relaxed">{suggestion.bio}</p>
-                </div>
-              </label>
-              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
-                <Checkbox
-                  checked={suggestion.apply.skills}
-                  onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, skills: !!v } })}
-                />
-                <div className="flex-1">
-                  <div className="text-xs font-medium text-muted-foreground">Skills ({suggestion.skills.length})</div>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {suggestion.skills.map((s) => (
-                      <Badge key={s} variant="secondary" className="bg-secondary/15 text-secondary">{s}</Badge>
-                    ))}
-                  </div>
-                </div>
-              </label>
+            <div className="flex items-center gap-2">
+              <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-primary glow">
+                <Sparkles className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div>
+                <DialogTitle className="font-display">AI extraction preview</DialogTitle>
+                <DialogDescription>Detected fields highlighted below — toggle to apply.</DialogDescription>
+              </div>
             </div>
-          )}
+          </DialogHeader>
+
+          {suggestion && (() => {
+            const existingSkills = new Set((profile.skills || []).map((s) => s.toLowerCase()));
+            const newSkillCount = suggestion.skills.filter((s) => !existingSkills.has(s.toLowerCase())).length;
+            const selectedCount =
+              (suggestion.apply.name && suggestion.full_name ? 1 : 0) +
+              (suggestion.apply.level ? 1 : 0) +
+              (suggestion.apply.bio ? 1 : 0) +
+              (suggestion.apply.skills ? 1 : 0);
+
+            return (
+              <div className="space-y-4">
+                {/* Summary strip */}
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-secondary/30 bg-secondary/5 px-3 py-2 text-xs">
+                  <BadgeCheck className="h-4 w-4 text-secondary" />
+                  <span className="font-medium">{selectedCount} of 4 fields selected</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground">{suggestion.skills.length} skills detected ({newSkillCount} new)</span>
+                </div>
+
+                {/* Full name */}
+                {suggestion.full_name && (
+                  <PreviewCard
+                    icon={<UserCircle2 className="h-4 w-4" />}
+                    label="Full name"
+                    checked={suggestion.apply.name}
+                    onToggle={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, name: v } })}
+                    accent="primary"
+                  >
+                    <div className="font-display text-lg font-semibold">{suggestion.full_name}</div>
+                    {profile.full_name && profile.full_name !== suggestion.full_name && (
+                      <div className="mt-1 text-xs text-muted-foreground line-through">Was: {profile.full_name}</div>
+                    )}
+                  </PreviewCard>
+                )}
+
+                {/* Experience level */}
+                <PreviewCard
+                  icon={<BadgeCheck className="h-4 w-4" />}
+                  label="Experience level"
+                  checked={suggestion.apply.level}
+                  onToggle={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, level: v } })}
+                  accent="primary"
+                >
+                  <Badge className="bg-primary/15 text-primary hover:bg-primary/20 capitalize">
+                    {suggestion.experience_level}
+                  </Badge>
+                </PreviewCard>
+
+                {/* Bio */}
+                <PreviewCard
+                  icon={<AlignLeft className="h-4 w-4" />}
+                  label="Bio"
+                  meta={`${suggestion.bio.length} chars`}
+                  checked={suggestion.apply.bio}
+                  onToggle={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, bio: v } })}
+                  accent="secondary"
+                >
+                  <p className="text-sm leading-relaxed text-foreground/90">{suggestion.bio}</p>
+                </PreviewCard>
+
+                {/* Skills — each highlighted */}
+                <PreviewCard
+                  icon={<Wrench className="h-4 w-4" />}
+                  label="Skills"
+                  meta={`${suggestion.skills.length} detected`}
+                  checked={suggestion.apply.skills}
+                  onToggle={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, skills: v } })}
+                  accent="secondary"
+                >
+                  {suggestion.skills.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No skills detected.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {suggestion.skills.map((s) => {
+                        const isNew = !existingSkills.has(s.toLowerCase());
+                        return (
+                          <Badge
+                            key={s}
+                            variant="secondary"
+                            className={
+                              isNew
+                                ? "bg-secondary/20 text-secondary border border-secondary/40 gap-1"
+                                : "bg-muted text-muted-foreground border border-border gap-1"
+                            }
+                            title={isNew ? "New skill" : "Already in your profile"}
+                          >
+                            {isNew ? <Plus className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                            {s}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-secondary" /> New</span>
+                    <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-muted-foreground/50" /> Already added</span>
+                  </div>
+                </PreviewCard>
+              </div>
+            );
+          })()}
+
           <DialogFooter>
             <Button variant="ghost" onClick={() => setSuggestion(null)}>Discard</Button>
             <Button onClick={applySuggestion} className="bg-gradient-primary glow hover:opacity-90">
@@ -355,6 +415,39 @@ function DashboardPage() {
         </DialogContent>
       </Dialog>
     </main>
+  );
+}
+
+function PreviewCard({
+  icon, label, meta, checked, onToggle, accent, children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  meta?: string;
+  checked: boolean;
+  onToggle: (v: boolean) => void;
+  accent: "primary" | "secondary";
+  children: React.ReactNode;
+}) {
+  const accentRing =
+    accent === "primary"
+      ? checked ? "border-primary/50 bg-primary/5" : "border-border"
+      : checked ? "border-secondary/50 bg-secondary/5" : "border-border";
+  const accentIcon =
+    accent === "primary" ? "bg-primary/15 text-primary" : "bg-secondary/15 text-secondary";
+
+  return (
+    <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${accentRing}`}>
+      <Checkbox checked={checked} onCheckedChange={(v) => onToggle(!!v)} className="mt-1" />
+      <div className="flex-1 min-w-0">
+        <div className="mb-2 flex items-center gap-2">
+          <span className={`grid h-6 w-6 place-items-center rounded-md ${accentIcon}`}>{icon}</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+          {meta && <span className="ml-auto text-[11px] text-muted-foreground">{meta}</span>}
+        </div>
+        {children}
+      </div>
+    </label>
   );
 }
 
