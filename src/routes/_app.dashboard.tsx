@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Camera, Trash2, Loader2, User as UserIcon } from "lucide-react";
+import { Camera, Trash2, Loader2, User as UserIcon, Sparkles, FileText, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { extractResumeText } from "@/lib/extract-resume-text";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — SkillSphere" }] }),
@@ -33,6 +38,57 @@ function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [skillInput, setSkillInput] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [suggestion, setSuggestion] = useState<null | {
+    full_name: string | null; bio: string; skills: string[]; experience_level: string;
+    apply: { name: boolean; bio: boolean; skills: boolean; level: boolean };
+  }>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleResumeFile(file: File) {
+    if (!user) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Resume too large (max 5MB).");
+      return;
+    }
+    setParsing(true);
+    try {
+      const text = await extractResumeText(file);
+      if (text.length < 80) throw new Error("Couldn't read enough text from this file. Try another export.");
+      const { data, error } = await supabase.functions.invoke("parse-resume", {
+        body: { resumeText: text, currentName: profile?.full_name },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setSuggestion({
+        full_name: data.full_name ?? null,
+        bio: data.bio ?? "",
+        skills: Array.isArray(data.skills) ? data.skills : [],
+        experience_level: data.experience_level ?? "junior",
+        apply: { name: !!data.full_name, bio: !!data.bio, skills: true, level: true },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Resume parsing failed");
+    } finally {
+      setParsing(false);
+      if (resumeInputRef.current) resumeInputRef.current.value = "";
+    }
+  }
+
+  function applySuggestion() {
+    if (!suggestion || !profile) return;
+    const merged = { ...profile };
+    if (suggestion.apply.name && suggestion.full_name) merged.full_name = suggestion.full_name;
+    if (suggestion.apply.bio) merged.bio = suggestion.bio;
+    if (suggestion.apply.level) merged.experience_level = suggestion.experience_level;
+    if (suggestion.apply.skills) {
+      const set = new Set([...(profile.skills || []), ...suggestion.skills]);
+      merged.skills = Array.from(set).slice(0, 30);
+    }
+    setProfile(merged);
+    setSuggestion(null);
+    toast.success("Resume insights applied — review and save.");
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -197,12 +253,107 @@ function DashboardPage() {
               </div>
             </div>
 
+            <div className="rounded-xl border border-dashed border-secondary/40 bg-secondary/5 p-4">
+              <div className="flex items-start gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-primary glow">
+                  <Sparkles className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-display text-sm font-semibold">Import from resume (AI)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Upload a PDF, DOCX, or TXT. We'll extract your skills and draft an optimized bio.
+                  </p>
+                  <div className="mt-3">
+                    <input
+                      ref={resumeInputRef}
+                      type="file"
+                      accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleResumeFile(f); }}
+                    />
+                    <Button
+                      type="button" variant="outline" size="sm"
+                      disabled={parsing}
+                      onClick={() => resumeInputRef.current?.click()}
+                    >
+                      {parsing ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Analyzing...</> : <><FileText className="mr-1.5 h-4 w-4" /> Upload resume</>}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <Button onClick={save} disabled={saving} className="w-full bg-gradient-primary glow hover:opacity-90">
               {saving ? "Saving..." : "Save changes"}
             </Button>
           </div>
         </motion.div>
       </div>
+
+      <Dialog open={!!suggestion} onOpenChange={(o) => !o && setSuggestion(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display">Resume insights</DialogTitle>
+            <DialogDescription>Pick what to apply to your profile. You can still edit before saving.</DialogDescription>
+          </DialogHeader>
+          {suggestion && (
+            <div className="space-y-4">
+              {suggestion.full_name && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                  <Checkbox
+                    checked={suggestion.apply.name}
+                    onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, name: !!v } })}
+                  />
+                  <div className="flex-1">
+                    <div className="text-xs font-medium text-muted-foreground">Full name</div>
+                    <div className="text-sm">{suggestion.full_name}</div>
+                  </div>
+                </label>
+              )}
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                <Checkbox
+                  checked={suggestion.apply.level}
+                  onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, level: !!v } })}
+                />
+                <div className="flex-1">
+                  <div className="text-xs font-medium text-muted-foreground">Experience level</div>
+                  <div className="text-sm capitalize">{suggestion.experience_level}</div>
+                </div>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                <Checkbox
+                  checked={suggestion.apply.bio}
+                  onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, bio: !!v } })}
+                />
+                <div className="flex-1">
+                  <div className="text-xs font-medium text-muted-foreground">Bio</div>
+                  <p className="text-sm leading-relaxed">{suggestion.bio}</p>
+                </div>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                <Checkbox
+                  checked={suggestion.apply.skills}
+                  onCheckedChange={(v) => setSuggestion({ ...suggestion, apply: { ...suggestion.apply, skills: !!v } })}
+                />
+                <div className="flex-1">
+                  <div className="text-xs font-medium text-muted-foreground">Skills ({suggestion.skills.length})</div>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {suggestion.skills.map((s) => (
+                      <Badge key={s} variant="secondary" className="bg-secondary/15 text-secondary">{s}</Badge>
+                    ))}
+                  </div>
+                </div>
+              </label>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSuggestion(null)}>Discard</Button>
+            <Button onClick={applySuggestion} className="bg-gradient-primary glow hover:opacity-90">
+              <Check className="mr-1.5 h-4 w-4" /> Apply selected
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

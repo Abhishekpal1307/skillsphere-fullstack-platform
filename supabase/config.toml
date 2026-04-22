@@ -2,3 +2,6 @@ project_id = "iyzlveqwsrwkdjrztfhi"
 
 [functions.match-jobs]
 verify_jwt = true
+
+[functions.parse-resume]
+verify_jwt = true
