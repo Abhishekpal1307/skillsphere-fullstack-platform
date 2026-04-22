@@ -38,6 +38,57 @@ function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [skillInput, setSkillInput] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [suggestion, setSuggestion] = useState<null | {
+    full_name: string | null; bio: string; skills: string[]; experience_level: string;
+    apply: { name: boolean; bio: boolean; skills: boolean; level: boolean };
+  }>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleResumeFile(file: File) {
+    if (!user) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Resume too large (max 5MB).");
+      return;
+    }
+    setParsing(true);
+    try {
+      const text = await extractResumeText(file);
+      if (text.length < 80) throw new Error("Couldn't read enough text from this file. Try another export.");
+      const { data, error } = await supabase.functions.invoke("parse-resume", {
+        body: { resumeText: text, currentName: profile?.full_name },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setSuggestion({
+        full_name: data.full_name ?? null,
+        bio: data.bio ?? "",
+        skills: Array.isArray(data.skills) ? data.skills : [],
+        experience_level: data.experience_level ?? "junior",
+        apply: { name: !!data.full_name, bio: !!data.bio, skills: true, level: true },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Resume parsing failed");
+    } finally {
+      setParsing(false);
+      if (resumeInputRef.current) resumeInputRef.current.value = "";
+    }
+  }
+
+  function applySuggestion() {
+    if (!suggestion || !profile) return;
+    const merged = { ...profile };
+    if (suggestion.apply.name && suggestion.full_name) merged.full_name = suggestion.full_name;
+    if (suggestion.apply.bio) merged.bio = suggestion.bio;
+    if (suggestion.apply.level) merged.experience_level = suggestion.experience_level;
+    if (suggestion.apply.skills) {
+      const set = new Set([...(profile.skills || []), ...suggestion.skills]);
+      merged.skills = Array.from(set).slice(0, 30);
+    }
+    setProfile(merged);
+    setSuggestion(null);
+    toast.success("Resume insights applied — review and save.");
+  }
 
   useEffect(() => {
     if (!user) return;
