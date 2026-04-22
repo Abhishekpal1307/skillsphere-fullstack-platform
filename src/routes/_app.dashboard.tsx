@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Camera, Trash2, Loader2, User as UserIcon, Sparkles, FileText, Check, UserCircle2, AlignLeft, Wrench, BadgeCheck, Plus } from "lucide-react";
+import { Camera, Trash2, Loader2, User as UserIcon, Sparkles, FileText, Check, UserCircle2, AlignLeft, Wrench, BadgeCheck, Plus, ArrowRight, Minus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -449,6 +449,33 @@ function PreviewCard({
       </div>
     </label>
   );
+}
+
+function CompareRow({
+  current, detected, changed,
+}: { current: React.ReactNode; detected: React.ReactNode; changed: boolean }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-stretch">
+      <div className="rounded-lg border border-border bg-muted/20 p-3">
+        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Current</div>
+        {current}
+      </div>
+      <div className="hidden sm:flex items-center justify-center text-muted-foreground">
+        <ArrowRight className={`h-4 w-4 ${changed ? "text-secondary" : ""}`} />
+      </div>
+      <div className={`rounded-lg border p-3 ${changed ? "border-secondary/40 bg-secondary/5" : "border-border bg-muted/10"}`}>
+        <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <Sparkles className="h-3 w-3 text-secondary" /> Detected
+          {!changed && <span className="ml-1 normal-case font-normal text-muted-foreground/70">(no change)</span>}
+        </div>
+        {detected}
+      </div>
+    </div>
+  );
+}
+
+function EmptyHint({ children }: { children: React.ReactNode }) {
+  return <span className="text-xs italic text-muted-foreground">{children}</span>;
 }
 
 function SkeletonProfile() {
