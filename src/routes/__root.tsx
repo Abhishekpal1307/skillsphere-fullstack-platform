@@ -36,6 +36,10 @@ export const Route = createRootRoute({
       { property: "og:description", content: "Build your developer portfolio and let AI match you with your dream job." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "SkillSphere — AI Developer Portfolio & Job Matching" },
+      { name: "twitter:description", content: "Build your developer portfolio and let AI match you with your dream job." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f7f4d2b5-814d-45f8-934d-417fa9c2e14c/id-preview-423d4709--885024ba-8724-4a49-9981-1d07ac42c7ae.lovable.app-1776937307697.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f7f4d2b5-814d-45f8-934d-417fa9c2e14c/id-preview-423d4709--885024ba-8724-4a49-9981-1d07ac42c7ae.lovable.app-1776937307697.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
