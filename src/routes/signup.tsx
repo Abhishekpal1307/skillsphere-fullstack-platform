@@ -18,7 +18,7 @@ const schema = z
   .object({
     name: z.string().trim().min(2, "Name too short").max(80),
     email: z.string().trim().email("Invalid email").max(200),
-    password: z.string().min(8, "Min 8 characters").max(72),
+    password: z.string().min(4, "Min 4 characters").max(72),
     confirm: z.string(),
   })
   .refine((d) => d.password === d.confirm, { message: "Passwords don't match", path: ["confirm"] });
