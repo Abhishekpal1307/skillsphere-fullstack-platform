@@ -55,8 +55,12 @@ function DashboardPage() {
     try {
       const text = await extractResumeText(file);
       if (text.length < 80) throw new Error("Couldn't read enough text from this file. Try another export.");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) throw new Error("Your session expired. Please sign in again.");
       const { data, error } = await supabase.functions.invoke("parse-resume", {
         body: { resumeText: text, currentName: profile?.full_name },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);

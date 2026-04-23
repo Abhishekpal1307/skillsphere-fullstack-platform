@@ -94,8 +94,11 @@ function JobsPage() {
         toast.error("Add some skills to your profile first");
         setMatching(false); return;
       }
+      const accessToken = session.access_token;
+      if (!accessToken) throw new Error("Your session expired. Please sign in again.");
       const { data, error } = await supabase.functions.invoke("match-jobs", {
         body: { profile, jobs: filtered.length ? filtered : jobs },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (error) throw error;
       const next: Record<string, MatchResult> = {};
